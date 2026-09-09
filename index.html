@@ -145,6 +145,16 @@
     background:#3a2f14;border:1px solid #6b5a24;color:#e8c37e;border-radius:8px;
     padding:8px 10px;font-size:0.72rem;line-height:1.4;margin-top:10px;
   }
+
+  .ads-links{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .ads-link{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;text-decoration:none;color:var(--text);font-size:0.86rem;font-weight:600;
+  }
+  .ads-link:hover{border-color:var(--accent);}
+  .ads-link .arrow{color:var(--muted);font-weight:400;}
+  .ads-note{color:var(--muted);font-size:0.72rem;line-height:1.4;margin-top:8px;}
 </style>
 </head>
 <body>
@@ -478,8 +488,79 @@ function renderSidebar(commune, type) {
         <div class="row"><span>${lbl}</span><span>${commune.loyers[k].loyer_m2.toFixed(2)} €/m² · ${fmtEuro(commune.loyers[k].loyer_mensuel_estime)}/mois</span></div>
       `).join('')}
     </div>
+    ${renderAnnoncesCard(commune, type)}
     ${renderQolCard(commune)}
     ${renderSecuriteCard(commune)}
+  `;
+}
+
+// ---- Liens vers les annonces de location (LeBoncoin / SeLoger / Bien'ici) ----
+// On ne récupère aucune donnée de ces sites (pas de scraping) : on construit uniquement une URL de
+// recherche pré-remplie, comme le ferait un utilisateur manuellement, puis on ouvre un nouvel onglet.
+function slugify(name) {
+  return name.toLowerCase()
+    .normalize('NFD').split('').filter(ch => { const cp = ch.codePointAt(0); return cp < 768 || cp > 879; }).join('')
+    .replace(/'/g, '-')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function budgetRange(commune, typeKey) {
+  const monthly = commune.loyers[typeKey].loyer_mensuel_estime;
+  const min = Math.max(0, Math.round(monthly * 0.8 / 10) * 10);
+  const max = Math.round(monthly * 1.2 / 10) * 10;
+  return { min, max };
+}
+
+function leboncoinUrl(commune, typeKey) {
+  const { min, max } = budgetRange(commune, typeKey);
+  const realEstateType = typeKey === 'house' ? '2' : '1';
+  const locations = `${commune.nom}__${commune.lat}_${commune.lon}_4000`;
+  const params = new URLSearchParams({
+    category: '10',
+    locations,
+    real_estate_type: realEstateType,
+    price: `${min}-${max}`
+  });
+  if (typeKey === 'apartment_t1_t2') params.set('rooms', '1-2');
+  if (typeKey === 'apartment_t3_plus') params.set('rooms', '3-90');
+  return `https://www.leboncoin.fr/recherche?${params.toString()}`;
+}
+
+function selogerUrl(commune) {
+  const slug = slugify(commune.nom);
+  const dept = commune.insee.slice(0, 2);
+  return `https://www.seloger.com/immobilier/locations/immo-${slug}-${dept}/`;
+}
+
+function bienIciUrl(commune) {
+  const slug = slugify(commune.nom);
+  return `https://www.bienici.com/recherche/location/${slug}`;
+}
+
+const ADS_SITES = [
+  { key: 'leboncoin', label: 'LeBoncoin', build: leboncoinUrl },
+  { key: 'seloger', label: 'SeLoger', build: (c) => selogerUrl(c) },
+  { key: 'bienici', label: "Bien'ici", build: (c) => bienIciUrl(c) }
+];
+
+function renderAnnoncesCard(commune, type) {
+  const links = ADS_SITES.map(site => `
+    <a class="ads-link" href="${site.build(commune, type)}" target="_blank" rel="noopener">
+      ${site.label}
+      <span class="arrow">↗</span>
+    </a>
+  `).join('');
+
+  return `
+    <div class="card">
+      <div class="label" style="margin-bottom:8px;">Voir les annonces de location</div>
+      <div class="ads-links">${links}</div>
+      <div class="ads-note">
+        Ouvre une recherche pré-remplie (commune, type de bien, budget estimé) sur le site externe, dans un
+        nouvel onglet. Aucune annonce n'est récupérée automatiquement par cette application.
+      </div>
+    </div>
   `;
 }
 

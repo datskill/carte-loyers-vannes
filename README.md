@@ -64,6 +64,25 @@ commissariat/brigade sur la commune. Pour cette raison, ces données ne sont vol
 au score "Qualité de vie" ni à la coloration de la carte — elles sont affichées à titre informatif dans la
 fiche de chaque commune.
 
+## Annonces de location (liens externes)
+La fiche de chaque commune propose 3 boutons ("Voir les annonces de location") vers LeBoncoin, SeLoger et
+Bien'ici, ouvrant un nouvel onglet avec une recherche pré-remplie (commune, type de bien sélectionné, budget
+estimé à partir du loyer mensuel de la commune ±20 %).
+
+**Pourquoi des liens plutôt que des annonces affichées dans l'app** : aucun de ces sites n'expose d'API
+publique gratuite, leurs CGU interdisent l'extraction automatisée de données, et ils utilisent tous une
+protection anti-bot (DataDome) activement appliquée — la CNIL a d'ailleurs sanctionné des cas de scraping non
+autorisé (jusqu'à 200k€ d'amende en 2026). Construire un scraper contournant ces protections serait donc à la
+fois contraire aux CGU et risqué juridiquement. La génération d'une simple URL de recherche (sans requête vers
+le site, aucune donnée récupérée) reste en revanche 100 % gratuite, conforme, et ne casse jamais côté
+maintenance.
+
+Les fonctions génératrices sont dans `index.html` (`leboncoinUrl`, `selogerUrl`, `bienIciUrl`). Le schéma
+d'URL LeBoncoin est bien documenté et fiable (paramètres `locations`, `real_estate_type`, `price`, `rooms`).
+Les schémas SeLoger et Bien'ici utilisés (URL de type page-ville) sont ceux les plus communément documentés
+mais n'ont pas pu être vérifiés en conditions réelles (accès à ces domaines bloqué depuis l'environnement de
+développement) — à tester manuellement et ajuster si un lien ne tombe pas sur la bonne page.
+
 Pour rafraîchir ces scores avec un millésime BPE plus récent :
 1. Récupérer l'URL du fichier Parquet BPE à jour sur data.gouv.fr.
 2. Interroger ce fichier à distance avec DuckDB (`INSTALL httpfs; LOAD httpfs;` puis
