@@ -146,25 +146,6 @@
     padding:8px 10px;font-size:0.72rem;line-height:1.4;margin-top:10px;
   }
 
-  .ads-budget{display:flex;gap:10px;margin-bottom:10px;}
-  .ads-budget label{
-    flex:1;display:flex;flex-direction:column;gap:4px;font-size:0.72rem;color:var(--muted);
-    text-transform:uppercase;letter-spacing:.02em;
-  }
-  .ads-budget input{
-    background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;
-    padding:7px 9px;font-size:0.86rem;width:100%;
-  }
-  .ads-budget input:focus{outline:2px solid var(--accent);}
-  .ads-links{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
-  .ads-link{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
-    background:var(--panel2);border:1px solid var(--border);border-radius:8px;
-    padding:10px 12px;text-decoration:none;color:var(--text);font-size:0.86rem;font-weight:600;
-  }
-  .ads-link:hover{border-color:var(--accent);}
-  .ads-link .arrow{color:var(--muted);font-weight:400;}
-  .ads-note{color:var(--muted);font-size:0.72rem;line-height:1.4;margin-top:8px;}
 </style>
 </head>
 <body>
@@ -498,119 +479,8 @@ function renderSidebar(commune, type) {
         <div class="row"><span>${lbl}</span><span>${commune.loyers[k].loyer_m2.toFixed(2)} €/m² · ${fmtEuro(commune.loyers[k].loyer_mensuel_estime)}/mois</span></div>
       `).join('')}
     </div>
-    ${renderAnnoncesCard(commune, type)}
     ${renderQolCard(commune)}
     ${renderSecuriteCard(commune)}
-  `;
-  wireAnnoncesCard(commune, type);
-}
-
-function wireAnnoncesCard(commune, typeKey) {
-  const minInput = document.getElementById('adsBudgetMin');
-  const maxInput = document.getElementById('adsBudgetMax');
-  if (!minInput || !maxInput) return;
-
-  function refreshLinks() {
-    const budget = {
-      min: Math.max(0, Number(minInput.value) || 0),
-      max: Math.max(0, Number(maxInput.value) || 0)
-    };
-    ADS_SITES.forEach(site => {
-      const el = document.getElementById(site.id);
-      if (el) el.href = site.build(commune, typeKey, budget);
-    });
-  }
-
-  minInput.addEventListener('input', refreshLinks);
-  maxInput.addEventListener('input', refreshLinks);
-}
-
-// ---- Liens vers les annonces de location (LeBoncoin / SeLoger / Bien'ici) ----
-// On ne récupère aucune donnée de ces sites (pas de scraping) : on construit uniquement une URL de
-// recherche pré-remplie, comme le ferait un utilisateur manuellement, puis on ouvre un nouvel onglet.
-function slugify(name) {
-  return name.toLowerCase()
-    .normalize('NFD').split('').filter(ch => { const cp = ch.codePointAt(0); return cp < 768 || cp > 879; }).join('')
-    .replace(/'/g, '-')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function budgetRange(commune, typeKey) {
-  const monthly = commune.loyers[typeKey].loyer_mensuel_estime;
-  const min = Math.max(0, Math.round(monthly * 0.8 / 10) * 10);
-  const max = Math.round(monthly * 1.2 / 10) * 10;
-  return { min, max };
-}
-
-function leboncoinUrl(commune, typeKey, budget) {
-  const realEstateType = typeKey === 'house' ? '2' : '1';
-  const locations = `${commune.nom}__${commune.lat}_${commune.lon}_4000`;
-  const params = new URLSearchParams({
-    category: '10',
-    locations,
-    real_estate_type: realEstateType
-  });
-  if (budget.min > 0 || budget.max > 0) params.set('price', `${budget.min}-${budget.max}`);
-  if (typeKey === 'apartment_t1_t2') params.set('rooms', '1-2');
-  if (typeKey === 'apartment_t3_plus') params.set('rooms', '3-90');
-  return `https://www.leboncoin.fr/recherche?${params.toString()}`;
-}
-
-// Format confirmé par test manuel : locations=AD08FR<code INSEE>
-function selogerUrl(commune, typeKey, budget) {
-  const estateType = typeKey === 'house' ? 'House' : 'Apartment';
-  const params = new URLSearchParams({
-    distributionTypes: 'Rent',
-    estateTypes: estateType,
-    locations: `AD08FR${commune.insee}`,
-    method: 'form'
-  });
-  if (budget.min > 0) params.set('priceMin', String(budget.min));
-  if (budget.max > 0) params.set('priceMax', String(budget.max));
-  return `https://www.seloger.com/classified-search?${params.toString()}`;
-}
-
-// Format confirmé par test manuel : /recherche/location/<slug>-<code postal>?prix-max=...
-function bienIciUrl(commune, typeKey, budget) {
-  const slug = slugify(commune.nom);
-  const params = new URLSearchParams();
-  if (budget.min > 0) params.set('prix-min', String(budget.min));
-  if (budget.max > 0) params.set('prix-max', String(budget.max));
-  const query = params.toString();
-  return `https://www.bienici.com/recherche/location/${slug}-${commune.code_postal}${query ? '?' + query : ''}`;
-}
-
-const ADS_SITES = [
-  { key: 'leboncoin', id: 'adsLeboncoin', label: 'LeBoncoin', build: leboncoinUrl },
-  { key: 'seloger', id: 'adsSeloger', label: 'SeLoger', build: selogerUrl },
-  { key: 'bienici', id: 'adsBienici', label: "Bien'ici", build: bienIciUrl }
-];
-
-function renderAnnoncesCard(commune, type) {
-  const { min, max } = budgetRange(commune, type);
-  const links = ADS_SITES.map(site => `
-    <a id="${site.id}" class="ads-link" href="${site.build(commune, type, { min, max })}" target="_blank" rel="noopener">
-      ${site.label}
-      <span class="arrow">↗</span>
-    </a>
-  `).join('');
-
-  return `
-    <div class="card">
-      <div class="label" style="margin-bottom:8px;">Voir les annonces de location</div>
-      <div class="ads-budget">
-        <label>Budget min<input type="number" id="adsBudgetMin" value="${min}" step="10" min="0"></label>
-        <label>Budget max<input type="number" id="adsBudgetMax" value="${max}" step="10" min="0"></label>
-      </div>
-      <div class="ads-links">${links}</div>
-      <div class="ads-note">
-        Ouvre une recherche pré-remplie (commune, type de bien, budget) sur le site externe, dans un
-        nouvel onglet. Le budget est pré-rempli à partir du loyer estimé de la commune (±20 %) mais
-        modifiable librement — les liens se mettent à jour automatiquement. Aucune annonce n'est récupérée
-        automatiquement par cette application.
-      </div>
-    </div>
   `;
 }
 
