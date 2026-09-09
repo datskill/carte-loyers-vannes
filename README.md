@@ -80,9 +80,10 @@ maintenance.
 Les fonctions génératrices sont dans `index.html` (`leboncoinUrl`, `selogerUrl`, `bienIciUrl`). Le schéma
 d'URL LeBoncoin est bien documenté et fiable (paramètres `locations`, `real_estate_type`, `price`, `rooms`).
 Le schéma SeLoger (`classified-search?distributionTypes=Rent&estateTypes=...&locations=AD08FR<code
-INSEE>&priceMin=...&priceMax=...`) a été vérifié manuellement et fonctionne. Le schéma Bien'ici (URL de type
-page-ville) n'a en revanche pas pu être vérifié en conditions réelles (accès au domaine bloqué depuis
-l'environnement de développement) — à tester et ajuster si le lien ne tombe pas sur la bonne page.
+INSEE>&priceMin=...&priceMax=...`) et le schéma Bien'ici
+(`recherche/location/<slug>-<code postal>?prix-min=...&prix-max=...`) ont tous les deux été vérifiés
+manuellement et fonctionnent. Le code postal de chaque commune (`code_postal` dans `data.js`) a été récupéré
+via l'API Geo officielle et gratuite de l'État (https://geo.api.gouv.fr/communes/<code INSEE>).
 
 Le budget (min/max) affiché dans les liens est pré-rempli à partir du loyer mensuel estimé de la commune
 (±20 %), mais reste **librement modifiable** via deux champs dans la fiche commune : les 3 liens se

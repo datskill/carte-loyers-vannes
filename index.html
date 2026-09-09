@@ -571,15 +571,20 @@ function selogerUrl(commune, typeKey, budget) {
   return `https://www.seloger.com/classified-search?${params.toString()}`;
 }
 
-function bienIciUrl(commune) {
+// Format confirmé par test manuel : /recherche/location/<slug>-<code postal>?prix-max=...
+function bienIciUrl(commune, typeKey, budget) {
   const slug = slugify(commune.nom);
-  return `https://www.bienici.com/recherche/location/${slug}`;
+  const params = new URLSearchParams();
+  if (budget.min > 0) params.set('prix-min', String(budget.min));
+  if (budget.max > 0) params.set('prix-max', String(budget.max));
+  const query = params.toString();
+  return `https://www.bienici.com/recherche/location/${slug}-${commune.code_postal}${query ? '?' + query : ''}`;
 }
 
 const ADS_SITES = [
   { key: 'leboncoin', id: 'adsLeboncoin', label: 'LeBoncoin', build: leboncoinUrl },
   { key: 'seloger', id: 'adsSeloger', label: 'SeLoger', build: selogerUrl },
-  { key: 'bienici', id: 'adsBienici', label: "Bien'ici", build: (c) => bienIciUrl(c) }
+  { key: 'bienici', id: 'adsBienici', label: "Bien'ici", build: bienIciUrl }
 ];
 
 function renderAnnoncesCard(commune, type) {
