@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carte des loyers — Vannes et 25 km alentour</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --bg:#0f1720; --panel:#16212c; --panel2:#1c2b38; --text:#eef3f7; --muted:#9fb2c1;
+    --accent:#4fb3ff; --border:#2a3b48;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{
+    padding:16px 24px;background:linear-gradient(135deg,#132436,#0f1720);
+    border-bottom:1px solid var(--border);
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
+  }
+  header h1{font-size:1.15rem;margin:0;font-weight:600;}
+  header p{margin:2px 0 0;color:var(--muted);font-size:0.82rem;}
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  select{
+    background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:8px;padding:8px 12px;font-size:0.9rem;cursor:pointer;
+  }
+  select:focus{outline:2px solid var(--accent);}
+  .layout{display:flex;height:calc(100vh - 74px);min-height:520px;}
+  #map{flex:1 1 auto;height:100%;}
+  #sidebar{
+    width:360px;flex:0 0 360px;background:var(--panel);border-left:1px solid var(--border);
+    overflow-y:auto;padding:18px;
+  }
+  #sidebar h2{margin:0 0 4px;font-size:1.05rem;}
+  #sidebar .subtitle{color:var(--muted);font-size:0.8rem;margin-bottom:14px;}
+  .card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
+  .card .big{font-size:1.7rem;font-weight:700;color:var(--accent);}
+  .card .label{font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;}
+  .row{display:flex;justify-content:space-between;font-size:0.86rem;padding:5px 0;border-bottom:1px solid var(--border);}
+  .row:last-child{border-bottom:none;}
+  .row span:first-child{color:var(--muted);}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:0.72rem;font-weight:600;}
+  .badge.ok{background:#1e4a2f;color:#7ee8a3;}
+  .badge.warn{background:#4a3a1e;color:#e8c37e;}
+  .placeholder{color:var(--muted);font-size:0.88rem;line-height:1.5;padding:8px 2px;}
+  .qol-score{display:flex;align-items:baseline;gap:8px;}
+  .qol-score .big{font-size:1.7rem;}
+  .qol-score .of100{color:var(--muted);font-size:0.9rem;}
+  .cat-row{margin-bottom:9px;}
+  .cat-row:last-child{margin-bottom:0;}
+  .cat-row .cat-top{display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:4px;}
+  .cat-row .cat-top .cat-name{color:var(--text);}
+  .cat-row .cat-top .cat-score{color:var(--muted);font-variant-numeric:tabular-nums;}
+  .cat-row .cat-meta{font-size:0.7rem;color:var(--muted);margin-top:3px;}
+  .bar{height:6px;border-radius:4px;background:#0f1720;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;}
+  .legend{
+    position:absolute;bottom:22px;left:12px;background:rgba(22,33,44,0.92);
+    border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:0.78rem;
+    z-index:1000;color:var(--text);min-width:170px;
+  }
+  .legend h3{margin:0 0 8px;font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .legend-scale{height:12px;border-radius:6px;background:linear-gradient(90deg,#2166ac,#67a9cf,#f7f7f7,#fdae61,#d73027);margin-bottom:6px;}
+  .legend-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:0.7rem;}
+  .leaflet-popup-content-wrapper{background:#1c2b38;color:var(--text);border-radius:8px;}
+  .leaflet-popup-tip{background:#1c2b38;}
+  .source-note{margin-top:16px;font-size:0.72rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:10px;}
+  a{color:var(--accent);}
+
+  .sb-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .select-btn{
+    display:none;flex:0 0 auto;border:1px solid var(--border);background:var(--panel2);color:var(--text);
+    border-radius:999px;padding:6px 12px;font-size:0.76rem;cursor:pointer;white-space:nowrap;
+  }
+  .select-btn:hover{border-color:var(--accent);}
+  .select-btn.active{background:#4a3f1e;border-color:#e8c37e;color:#e8c37e;}
+
+  .selection-tray{
+    position:fixed;top:90px;right:376px;width:250px;max-height:calc(100vh - 110px);
+    background:rgba(22,33,44,0.95);border:1px solid var(--border);border-radius:10px;
+    padding:12px 14px;z-index:1000;overflow-y:auto;font-size:0.8rem;
+  }
+  .selection-tray h3{margin:0 0 8px;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;color:var(--text);}
+  .selection-tray h3 span{color:var(--muted);font-weight:400;}
+  .tray-hint{color:var(--muted);font-size:0.74rem;line-height:1.5;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .chip{
+    display:inline-flex;align-items:center;gap:5px;background:var(--panel2);
+    border:1px solid var(--border);border-radius:999px;padding:3px 4px 3px 10px;font-size:0.74rem;
+  }
+  .chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.85rem;padding:2px 4px;line-height:1;}
+  .chip button:hover{color:#ff6b6b;}
+  .tray-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .tray-actions button{
+    flex:1 1 auto;background:var(--accent);color:#0f1720;border:none;border-radius:8px;
+    padding:7px 8px;font-size:0.76rem;font-weight:600;cursor:pointer;white-space:nowrap;
+  }
+  .tray-actions button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(6,10,14,0.72);z-index:2000;
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .modal-overlay[hidden]{display:none;}
+  .modal{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    width:min(1100px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .modal-header{
+    display:flex;justify-content:space-between;align-items:center;padding:16px 20px;
+    border-bottom:1px solid var(--border);
+  }
+  .modal-header h2{margin:0;font-size:1.05rem;}
+  .modal-header button{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;}
+  .modal-header button:hover{color:var(--text);}
+  .modal-body{padding:16px 20px;overflow:auto;}
+  .compare-table-wrap{overflow-x:auto;}
+  table.compare{border-collapse:collapse;width:100%;font-size:0.82rem;white-space:nowrap;}
+  table.compare th, table.compare td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;}
+  table.compare th{color:var(--muted);cursor:pointer;user-select:none;font-weight:600;text-transform:uppercase;font-size:0.66rem;letter-spacing:.03em;}
+  table.compare th:hover{color:var(--accent);}
+  table.compare tbody tr{cursor:pointer;}
+  table.compare tbody tr:hover td{background:rgba(79,179,255,0.06);}
+  table.compare tr.active-row td{background:rgba(79,179,255,0.12);}
+  table.compare td.remove-cell{text-align:center;cursor:default;}
+  table.compare td.remove-cell button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.95rem;}
+  table.compare td.remove-cell button:hover{color:#ff6b6b;}
+  .compare-empty{color:var(--muted);font-size:0.88rem;padding:20px 4px;}
+
+  .sec-coverage{
+    display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;
+    color:var(--muted);margin-top:2px;
+  }
+  .sec-coverage .n{color:var(--text);font-weight:600;}
+  .sec-cat{margin-bottom:12px;}
+  .sec-cat:last-child{margin-bottom:0;}
+  .sec-cat-head{display:flex;justify-content:space-between;font-size:0.84rem;margin-bottom:6px;}
+  .sec-cat-head .name{color:var(--text);font-weight:600;}
+  .sec-cat-head .val{color:var(--muted);font-variant-numeric:tabular-nums;}
+  .sec-ind{display:flex;justify-content:space-between;font-size:0.76rem;padding:3px 0 3px 10px;color:var(--muted);}
+  .sec-ind .ind-name{color:var(--muted);}
+  .sec-ind .ind-val{font-variant-numeric:tabular-nums;color:var(--text);}
+  .sec-ind .ind-na{font-style:italic;color:#6b7d8c;}
+  .sec-warning{
+    background:#3a2f14;border:1px solid #6b5a24;color:#e8c37e;border-radius:8px;
+    padding:8px 10px;font-size:0.72rem;line-height:1.4;margin-top:10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Carte des loyers — Vannes et périphérie (25 km)</h1>
+    <p>Indicateurs de loyers d'annonce par commune — données ANIL / DHUP</p>
+  </div>
+  <div class="controls">
+    <label for="metricSelect" style="font-size:0.82rem;color:var(--muted);">Carte colorée par :</label>
+    <select id="metricSelect">
+      <option value="rent">Loyer (€/m²)</option>
+      <option value="qol">Qualité de vie (score)</option>
+    </select>
+    <label for="propertyType" style="font-size:0.82rem;color:var(--muted);">Type de bien :</label>
+    <select id="propertyType"></select>
+  </div>
+</header>
+
+<div class="layout">
+  <div id="map"></div>
+  <div id="sidebar">
+    <div class="sb-title-row">
+      <h2 id="sbTitle">Sélectionnez une commune</h2>
+      <button id="selectBtn" class="select-btn">☆ Ajouter</button>
+    </div>
+    <div class="subtitle" id="sbSubtitle">Cliquez sur un point de la carte pour afficher le détail des loyers.</div>
+    <div id="sbContent">
+      <div class="placeholder">
+        Aucune commune sélectionnée. La carte affiche 36 communes dans un rayon de 25 km autour de Vannes,
+        coloriées selon le loyer estimé (€/m² charges comprises) pour le type de bien choisi.
+      </div>
+    </div>
+    <div class="source-note">
+      Loyers : ANIL / DHUP, modèles de prédiction des loyers ("Carte des loyers"). Loyers d'annonce, charges
+      comprises, biens loués vides. Ces valeurs sont des indicateurs de marché, à considérer avec prudence
+      lorsque le nombre d'observations est faible ou le R² inférieur à 0,5.
+      <br><br>
+      Qualité de vie : INSEE, Base Permanente des Équipements (BPE) 2024. Score indicatif construit à partir
+      de la diversité et de la densité des commerces et équipements par commune — voir détail dans la fiche
+      commune.
+      <br><br>
+      Sécurité : Ministère de l'Intérieur (SSMSI), faits de délinquance enregistrés par la police et la
+      gendarmerie, moyenne 2023-2025 pour 1000 habitants. Certains indicateurs ne sont pas publiés pour les
+      petites communes (secret statistique) — voir le détail et l'avertissement dans la fiche commune.
+    </div>
+  </div>
+</div>
+
+<div class="legend" id="legend">
+  <h3 id="legendTitle">Loyer €/m² CC</h3>
+  <div class="legend-scale" id="legendScale"></div>
+  <div class="legend-labels"><span id="legendMin">-</span><span id="legendMax">-</span></div>
+</div>
+
+<div class="selection-tray" id="selectionTray">
+  <h3>Ma sélection <span id="selCount">(0)</span></h3>
+  <div class="tray-hint" id="trayHint">
+    Cliquez sur une commune puis « Ajouter » pour construire la liste des communes à visiter.
+  </div>
+  <div class="chips" id="selectionChips"></div>
+  <div class="tray-actions" id="trayActions" style="display:none;">
+    <button id="compareBtn">Comparer</button>
+    <button id="fitBtn" class="secondary">Centrer</button>
+    <button id="clearSelBtn" class="secondary">Vider</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="compareModalOverlay" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Comparer les communes sélectionnées</h2>
+      <button id="closeCompareBtn" title="Fermer">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="compare-table-wrap">
+        <table class="compare" id="compareTable"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="data.js"></script>
+<script>
+const map = L.map('map', { zoomControl: true }).setView([47.6582, -2.7608], 11);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '&copy; <a href="https://www.esri.com">Esri</a>, HERE, Garmin, FAO, NOAA, USGS',
+  maxZoom: 16
+}).addTo(map);
+
+const typeSelect = document.getElementById('propertyType');
+Object.entries(DATA.labels).forEach(([key, label]) => {
+  const opt = document.createElement('option');
+  opt.value = key; opt.textContent = label;
+  typeSelect.appendChild(opt);
+});
+typeSelect.value = 'apartment_t1_t2';
+
+const metricSelect = document.getElementById('metricSelect');
+
+const RENT_STOPS = [
+  [0.0, [33, 102, 172]],
+  [0.25, [103, 169, 207]],
+  [0.5, [247, 247, 247]],
+  [0.75, [253, 174, 97]],
+  [1.0, [215, 48, 39]]
+];
+// RdYlGn : rouge = score faible, vert = score élevé (haut = bonne qualité de vie)
+const QOL_STOPS = [
+  [0.0, [215, 48, 39]],
+  [0.25, [252, 141, 89]],
+  [0.5, [255, 255, 191]],
+  [0.75, [145, 207, 96]],
+  [1.0, [26, 152, 80]]
+];
+
+function colorScale(value, min, max, stops) {
+  let t = max > min ? (value - min) / (max - min) : 0.5;
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [t0, c0] = stops[i], [t1, c1] = stops[i+1];
+    if (t >= t0 && t <= t1) {
+      const f = (t - t0) / (t1 - t0);
+      const r = Math.round(c0[0] + f*(c1[0]-c0[0]));
+      const g = Math.round(c0[1] + f*(c1[1]-c0[1]));
+      const b = Math.round(c0[2] + f*(c1[2]-c0[2]));
+      return `rgb(${r},${g},${b})`;
+    }
+  }
+  return 'rgb(150,150,150)';
+}
+
+let markers = [];
+let activeCommune = null;
+
+function fmtEuro(v) {
+  return new Intl.NumberFormat('fr-FR', {maximumFractionDigits: 0}).format(v) + ' €';
+}
+
+// ---- Sélection / comparaison ----
+const SELECTION_KEY = 'carteLoyersVannes.selection';
+
+function loadSelection() {
+  try {
+    const raw = localStorage.getItem(SELECTION_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(arr.filter(insee => DATA.communes.some(c => c.insee === insee)));
+  } catch (e) {
+    return new Set();
+  }
+}
+function saveSelection() {
+  try { localStorage.setItem(SELECTION_KEY, JSON.stringify([...selectedInsee])); } catch (e) {}
+}
+
+let selectedInsee = loadSelection();
+let compareSort = { key: 'score_global', dir: 'desc' };
+
+function selectedCommunes() {
+  return [...selectedInsee].map(insee => DATA.communes.find(c => c.insee === insee)).filter(Boolean);
+}
+
+function toggleSelection(insee) {
+  if (selectedInsee.has(insee)) selectedInsee.delete(insee);
+  else selectedInsee.add(insee);
+  saveSelection();
+  renderSelectionTray();
+  updateMap();
+  if (document.getElementById('compareModalOverlay').hasAttribute('hidden') === false) {
+    renderCompareTable();
+  }
+}
+
+function renderSelectionTray() {
+  const count = selectedInsee.size;
+  document.getElementById('selCount').textContent = `(${count})`;
+  const chipsEl = document.getElementById('selectionChips');
+  const actionsEl = document.getElementById('trayActions');
+  const hintEl = document.getElementById('trayHint');
+
+  if (count === 0) {
+    chipsEl.innerHTML = '';
+    actionsEl.style.display = 'none';
+    hintEl.style.display = 'block';
+    return;
+  }
+  hintEl.style.display = 'none';
+  actionsEl.style.display = 'flex';
+  chipsEl.innerHTML = selectedCommunes().map(c => `
+    <span class="chip">${c.nom}<button data-remove-chip="${c.insee}" title="Retirer">✕</button></span>
+  `).join('');
+}
+
+document.getElementById('selectionChips').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-remove-chip]');
+  if (!btn) return;
+  toggleSelection(btn.dataset.removeChip);
+});
+
+document.getElementById('clearSelBtn').addEventListener('click', () => {
+  if (selectedInsee.size && !confirm('Vider toute la sélection ?')) return;
+  selectedInsee.clear();
+  saveSelection();
+  renderSelectionTray();
+  updateMap();
+});
+
+document.getElementById('fitBtn').addEventListener('click', () => {
+  const communes = selectedCommunes();
+  if (!communes.length) return;
+  map.fitBounds(L.latLngBounds(communes.map(c => [c.lat, c.lon])), { padding: [40, 40] });
+});
+
+const compareModalOverlay = document.getElementById('compareModalOverlay');
+document.getElementById('compareBtn').addEventListener('click', () => {
+  renderCompareTable();
+  compareModalOverlay.removeAttribute('hidden');
+});
+document.getElementById('closeCompareBtn').addEventListener('click', () => {
+  compareModalOverlay.setAttribute('hidden', '');
+});
+compareModalOverlay.addEventListener('click', (e) => {
+  if (e.target === compareModalOverlay) compareModalOverlay.setAttribute('hidden', '');
+});
+
+const COMPARE_COLUMNS = [
+  { key: 'nom', label: 'Commune', get: c => c.nom, format: v => v, numeric: false },
+  { key: 'population', label: 'Population', get: c => c.population, format: v => v.toLocaleString('fr-FR'), numeric: true },
+  { key: 'distance_vannes_km', label: 'Dist. Vannes', get: c => c.distance_vannes_km, format: v => v.toFixed(1) + ' km', numeric: true },
+  { key: 'loyer_m2', label: 'Loyer €/m²', get: c => c.loyers[typeSelect.value].loyer_m2, format: v => v.toFixed(2) + ' €', numeric: true },
+  { key: 'loyer_mensuel', label: 'Loyer / mois', get: c => c.loyers[typeSelect.value].loyer_mensuel_estime, format: v => fmtEuro(v), numeric: true },
+  { key: 'score_global', label: 'Qual. de vie', get: c => c.qualite_vie.score_global, format: v => v + '/100', numeric: true },
+  { key: 'commerces', label: 'Commerces', get: c => c.qualite_vie.categories.commerces.score, format: v => v, numeric: true },
+  { key: 'sante', label: 'Santé', get: c => c.qualite_vie.categories.sante.score, format: v => v, numeric: true },
+  { key: 'education', label: 'Éducation', get: c => c.qualite_vie.categories.education.score, format: v => v, numeric: true },
+  { key: 'loisirs', label: 'Loisirs', get: c => c.qualite_vie.categories.loisirs.score, format: v => v, numeric: true }
+];
+
+function renderCompareTable() {
+  const communes = selectedCommunes();
+  const col = COMPARE_COLUMNS.find(c => c.key === compareSort.key);
+  communes.sort((a, b) => {
+    const va = col.get(a), vb = col.get(b);
+    const cmp = col.numeric ? (va - vb) : String(va).localeCompare(String(vb));
+    return compareSort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  const table = document.getElementById('compareTable');
+  if (!communes.length) {
+    table.innerHTML = `<tbody><tr><td class="compare-empty">Aucune commune sélectionnée. Ajoutez des communes depuis leur fiche pour les comparer ici.</td></tr></tbody>`;
+    return;
+  }
+
+  const thead = `<thead><tr>${COMPARE_COLUMNS.map(c => {
+    const arrow = compareSort.key === c.key ? (compareSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    return `<th data-key="${c.key}">${c.label}${arrow}</th>`;
+  }).join('')}<th></th></tr></thead>`;
+
+  const tbody = `<tbody>${communes.map(c => `
+    <tr data-insee="${c.insee}" class="${activeCommune === c.nom ? 'active-row' : ''}">
+      ${COMPARE_COLUMNS.map(col => `<td>${col.format(col.get(c))}</td>`).join('')}
+      <td class="remove-cell"><button data-remove-row="${c.insee}" title="Retirer">✕</button></td>
+    </tr>
+  `).join('')}</tbody>`;
+
+  table.innerHTML = thead + tbody;
+}
+
+document.getElementById('compareTable').addEventListener('click', (e) => {
+  const removeBtn = e.target.closest('[data-remove-row]');
+  if (removeBtn) {
+    toggleSelection(removeBtn.dataset.removeRow);
+    return;
+  }
+  const th = e.target.closest('th[data-key]');
+  if (th) {
+    const key = th.dataset.key;
+    if (compareSort.key === key) compareSort.dir = compareSort.dir === 'asc' ? 'desc' : 'asc';
+    else compareSort = { key, dir: 'desc' };
+    renderCompareTable();
+    return;
+  }
+  const row = e.target.closest('tr[data-insee]');
+  if (row) {
+    const c = DATA.communes.find(c => c.insee === row.dataset.insee);
+    if (c) {
+      activeCommune = c.nom;
+      renderSidebar(c, typeSelect.value);
+      compareModalOverlay.setAttribute('hidden', '');
+      map.panTo([c.lat, c.lon]);
+    }
+  }
+});
+
+function renderSidebar(commune, type) {
+  const label = DATA.labels[type];
+  const info = commune.loyers[type];
+  document.getElementById('sbTitle').textContent = commune.nom;
+  document.getElementById('sbSubtitle').textContent =
+    `${commune.population.toLocaleString('fr-FR')} habitants · ${commune.distance_vannes_km} km de Vannes · INSEE ${commune.insee}`;
+
+  const selectBtn = document.getElementById('selectBtn');
+  const isSelected = selectedInsee.has(commune.insee);
+  selectBtn.style.display = 'inline-flex';
+  selectBtn.textContent = isSelected ? '★ Dans ma sélection' : '☆ Ajouter à ma sélection';
+  selectBtn.classList.toggle('active', isSelected);
+  selectBtn.onclick = () => toggleSelection(commune.insee);
+
+  const reliability = info.fiable
+    ? '<span class="badge ok">Indicateur fiable</span>'
+    : '<span class="badge warn">À interpréter avec prudence</span>';
+
+  document.getElementById('sbContent').innerHTML = `
+    <div class="card">
+      <div class="label">${label} — loyer estimé</div>
+      <div class="big">${info.loyer_m2.toFixed(2)} €/m²</div>
+      <div style="color:var(--muted);font-size:0.82rem;margin-top:2px;">charges comprises</div>
+    </div>
+    <div class="card">
+      <div class="row"><span>Surface de référence</span><span>${info.surface_ref_m2} m²</span></div>
+      <div class="row"><span>Loyer mensuel estimé</span><span>${fmtEuro(info.loyer_mensuel_estime)}</span></div>
+      <div class="row"><span>Nombre d'observations</span><span>${info.nb_observations}</span></div>
+      <div class="row"><span>Coefficient R²</span><span>${info.r2}</span></div>
+      <div class="row"><span>Fiabilité</span><span>${reliability}</span></div>
+    </div>
+    <div class="card">
+      <div class="label" style="margin-bottom:8px;">Tous les types de bien à ${commune.nom}</div>
+      ${Object.entries(DATA.labels).map(([k, lbl]) => `
+        <div class="row"><span>${lbl}</span><span>${commune.loyers[k].loyer_m2.toFixed(2)} €/m² · ${fmtEuro(commune.loyers[k].loyer_mensuel_estime)}/mois</span></div>
+      `).join('')}
+    </div>
+    ${renderQolCard(commune)}
+    ${renderSecuriteCard(commune)}
+  `;
+}
+
+function renderSecuriteCard(commune) {
+  const sec = commune.securite;
+  const meta = DATA.securite_meta;
+  if (!sec || !meta) return '';
+
+  const catRows = meta.categories.map(cat => {
+    const c = sec.categories[cat.key];
+    const indicateurs = Object.entries(sec.indicateurs).filter(([, v]) => v.categorie === cat.key);
+    const indRows = indicateurs.map(([name, v]) => {
+      const val = v.disponible
+        ? `<span class="ind-val">${v.taux_pour_mille_moyen.toFixed(2)} ‰</span>`
+        : `<span class="ind-na">non publié</span>`;
+      return `<div class="sec-ind"><span class="ind-name">${name}</span>${val}</div>`;
+    }).join('');
+    const catVal = c.nb_indicateurs_publies > 0
+      ? `${c.taux_pour_mille.toFixed(2)} ‰ · ${c.nb_indicateurs_publies}/${c.nb_indicateurs_total} publiés`
+      : `non disponible · 0/${c.nb_indicateurs_total} publiés`;
+    return `
+      <div class="sec-cat">
+        <div class="sec-cat-head">
+          <span class="name">${cat.label}</span>
+          <span class="val">${catVal}</span>
+        </div>
+        ${indRows}
+      </div>`;
+  }).join('');
+
+  const totalDisplay = sec.nb_indicateurs_publies > 0
+    ? `${sec.taux_pour_mille_total.toFixed(1)} <span style="font-size:0.9rem;color:var(--muted);">‰ / an</span>`
+    : `<span style="font-size:1rem;color:var(--muted);">Non disponible</span>`;
+
+  return `
+    <div class="card">
+      <div class="label">Sécurité — faits enregistrés (police / gendarmerie)</div>
+      <div class="big" style="color:var(--text);">${totalDisplay}</div>
+      <div class="sec-coverage">
+        <span>Indicateurs publiés pour cette commune</span>
+        <span class="n">${sec.nb_indicateurs_publies}/${sec.nb_indicateurs_total}</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label" style="margin-bottom:10px;">Détail par catégorie (moyenne ${sec.annees})</div>
+      ${catRows}
+      <div class="sec-warning">
+        ⚠️ Pour les petites communes, une partie des indicateurs n'est pas publiée par le Ministère de
+        l'Intérieur (secret statistique). Un taux plus bas ou "non publié" ne signifie pas forcément plus sûr —
+        vérifiez toujours le nombre d'indicateurs publiés avant de comparer deux communes.
+      </div>
+    </div>
+  `;
+}
+
+function qolColor(score) {
+  return colorScale(score, 0, 100, QOL_STOPS);
+}
+
+function renderQolCard(commune) {
+  const qol = commune.qualite_vie;
+  if (!qol) return '';
+  const meta = DATA.qualite_vie_meta;
+  const catOrder = meta ? meta.categories.map(c => c.key) : Object.keys(qol.categories);
+
+  const rows = catOrder.map(key => {
+    const cat = qol.categories[key];
+    if (!cat) return '';
+    return `
+      <div class="cat-row">
+        <div class="cat-top">
+          <span class="cat-name">${cat.label}</span>
+          <span class="cat-score">${cat.score}/100</span>
+        </div>
+        <div class="bar"><div class="bar-fill" style="width:${cat.score}%;background:${qolColor(cat.score)};"></div></div>
+        <div class="cat-meta">${cat.nb_equipements} équipement${cat.nb_equipements > 1 ? 's' : ''} · ${cat.nb_types_distincts} types différents</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div class="label">Qualité de vie — score global</div>
+      <div class="qol-score">
+        <span class="big" style="color:${qolColor(qol.score_global)};">${qol.score_global}</span>
+        <span class="of100">/ 100</span>
+      </div>
+      <div style="color:var(--muted);font-size:0.78rem;margin-top:2px;">
+        Basé sur les commerces et équipements recensés par l'INSEE (BPE ${meta ? meta.millesime : ''})
+      </div>
+    </div>
+    <div class="card">
+      <div class="label" style="margin-bottom:10px;">Détail par catégorie</div>
+      ${rows}
+    </div>
+  `;
+}
+
+function updateMap() {
+  const metric = metricSelect.value;
+  const type = typeSelect.value;
+  typeSelect.disabled = metric === 'qol';
+
+  const isQol = metric === 'qol';
+  const values = DATA.communes.map(c => isQol ? c.qualite_vie.score_global : c.loyers[type].loyer_m2);
+  const min = Math.min(...values), max = Math.max(...values);
+  const stops = isQol ? QOL_STOPS : RENT_STOPS;
+
+  document.getElementById('legendTitle').textContent = isQol ? 'Qualité de vie (score /100)' : 'Loyer €/m² CC';
+  document.getElementById('legendScale').style.background = isQol
+    ? 'linear-gradient(90deg,#d73027,#fc8d59,#ffffbf,#91cf60,#1a9850)'
+    : 'linear-gradient(90deg,#2166ac,#67a9cf,#f7f7f7,#fdae61,#d73027)';
+  document.getElementById('legendMin').textContent = isQol ? Math.round(min) : min.toFixed(1) + ' €';
+  document.getElementById('legendMax').textContent = isQol ? Math.round(max) : max.toFixed(1) + ' €';
+
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  DATA.communes.forEach(commune => {
+    const value = isQol ? commune.qualite_vie.score_global : commune.loyers[type].loyer_m2;
+    const color = colorScale(value, min, max, stops);
+    const radius = 6 + 10 * Math.sqrt(commune.population / 57745);
+
+    const isSelected = selectedInsee.has(commune.insee);
+    let strokeColor = commune.nom === 'Vannes' ? '#ffffff' : '#0f1720';
+    let strokeWeight = commune.nom === 'Vannes' ? 2 : 1;
+    if (isSelected) { strokeColor = '#ffd23f'; strokeWeight = 3; }
+
+    const marker = L.circleMarker([commune.lat, commune.lon], {
+      radius: radius,
+      fillColor: color,
+      color: strokeColor,
+      weight: strokeWeight,
+      fillOpacity: 0.88
+    }).addTo(map);
+
+    const tooltip = isQol
+      ? `${commune.nom} — qualité de vie ${value}/100`
+      : `${commune.nom} — ${value.toFixed(1)} €/m²`;
+    marker.bindTooltip(tooltip, {direction: 'top', offset: [0, -6]});
+
+    marker.on('click', () => {
+      activeCommune = commune.nom;
+      renderSidebar(commune, typeSelect.value);
+    });
+
+    markers.push(marker);
+  });
+
+  if (activeCommune) {
+    const c = DATA.communes.find(c => c.nom === activeCommune);
+    if (c) renderSidebar(c, type);
+  }
+}
+
+typeSelect.addEventListener('change', updateMap);
+metricSelect.addEventListener('change', updateMap);
+updateMap();
+renderSelectionTray();
+</script>
+</body>
+</html>
