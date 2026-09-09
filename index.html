@@ -146,6 +146,16 @@
     padding:8px 10px;font-size:0.72rem;line-height:1.4;margin-top:10px;
   }
 
+  .ads-budget{display:flex;gap:10px;margin-bottom:10px;}
+  .ads-budget label{
+    flex:1;display:flex;flex-direction:column;gap:4px;font-size:0.72rem;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.02em;
+  }
+  .ads-budget input{
+    background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;
+    padding:7px 9px;font-size:0.86rem;width:100%;
+  }
+  .ads-budget input:focus{outline:2px solid var(--accent);}
   .ads-links{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
   .ads-link{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -492,6 +502,27 @@ function renderSidebar(commune, type) {
     ${renderQolCard(commune)}
     ${renderSecuriteCard(commune)}
   `;
+  wireAnnoncesCard(commune, type);
+}
+
+function wireAnnoncesCard(commune, typeKey) {
+  const minInput = document.getElementById('adsBudgetMin');
+  const maxInput = document.getElementById('adsBudgetMax');
+  if (!minInput || !maxInput) return;
+
+  function refreshLinks() {
+    const budget = {
+      min: Math.max(0, Number(minInput.value) || 0),
+      max: Math.max(0, Number(maxInput.value) || 0)
+    };
+    ADS_SITES.forEach(site => {
+      const el = document.getElementById(site.id);
+      if (el) el.href = site.build(commune, typeKey, budget);
+    });
+  }
+
+  minInput.addEventListener('input', refreshLinks);
+  maxInput.addEventListener('input', refreshLinks);
 }
 
 // ---- Liens vers les annonces de location (LeBoncoin / SeLoger / Bien'ici) ----
@@ -512,25 +543,32 @@ function budgetRange(commune, typeKey) {
   return { min, max };
 }
 
-function leboncoinUrl(commune, typeKey) {
-  const { min, max } = budgetRange(commune, typeKey);
+function leboncoinUrl(commune, typeKey, budget) {
   const realEstateType = typeKey === 'house' ? '2' : '1';
   const locations = `${commune.nom}__${commune.lat}_${commune.lon}_4000`;
   const params = new URLSearchParams({
     category: '10',
     locations,
-    real_estate_type: realEstateType,
-    price: `${min}-${max}`
+    real_estate_type: realEstateType
   });
+  if (budget.min > 0 || budget.max > 0) params.set('price', `${budget.min}-${budget.max}`);
   if (typeKey === 'apartment_t1_t2') params.set('rooms', '1-2');
   if (typeKey === 'apartment_t3_plus') params.set('rooms', '3-90');
   return `https://www.leboncoin.fr/recherche?${params.toString()}`;
 }
 
-function selogerUrl(commune) {
-  const slug = slugify(commune.nom);
-  const dept = commune.insee.slice(0, 2);
-  return `https://www.seloger.com/immobilier/locations/immo-${slug}-${dept}/`;
+// Format confirmé par test manuel : locations=AD08FR<code INSEE>
+function selogerUrl(commune, typeKey, budget) {
+  const estateType = typeKey === 'house' ? 'House' : 'Apartment';
+  const params = new URLSearchParams({
+    distributionTypes: 'Rent',
+    estateTypes: estateType,
+    locations: `AD08FR${commune.insee}`,
+    method: 'form'
+  });
+  if (budget.min > 0) params.set('priceMin', String(budget.min));
+  if (budget.max > 0) params.set('priceMax', String(budget.max));
+  return `https://www.seloger.com/classified-search?${params.toString()}`;
 }
 
 function bienIciUrl(commune) {
@@ -539,14 +577,15 @@ function bienIciUrl(commune) {
 }
 
 const ADS_SITES = [
-  { key: 'leboncoin', label: 'LeBoncoin', build: leboncoinUrl },
-  { key: 'seloger', label: 'SeLoger', build: (c) => selogerUrl(c) },
-  { key: 'bienici', label: "Bien'ici", build: (c) => bienIciUrl(c) }
+  { key: 'leboncoin', id: 'adsLeboncoin', label: 'LeBoncoin', build: leboncoinUrl },
+  { key: 'seloger', id: 'adsSeloger', label: 'SeLoger', build: selogerUrl },
+  { key: 'bienici', id: 'adsBienici', label: "Bien'ici", build: (c) => bienIciUrl(c) }
 ];
 
 function renderAnnoncesCard(commune, type) {
+  const { min, max } = budgetRange(commune, type);
   const links = ADS_SITES.map(site => `
-    <a class="ads-link" href="${site.build(commune, type)}" target="_blank" rel="noopener">
+    <a id="${site.id}" class="ads-link" href="${site.build(commune, type, { min, max })}" target="_blank" rel="noopener">
       ${site.label}
       <span class="arrow">↗</span>
     </a>
@@ -555,10 +594,16 @@ function renderAnnoncesCard(commune, type) {
   return `
     <div class="card">
       <div class="label" style="margin-bottom:8px;">Voir les annonces de location</div>
+      <div class="ads-budget">
+        <label>Budget min<input type="number" id="adsBudgetMin" value="${min}" step="10" min="0"></label>
+        <label>Budget max<input type="number" id="adsBudgetMax" value="${max}" step="10" min="0"></label>
+      </div>
       <div class="ads-links">${links}</div>
       <div class="ads-note">
-        Ouvre une recherche pré-remplie (commune, type de bien, budget estimé) sur le site externe, dans un
-        nouvel onglet. Aucune annonce n'est récupérée automatiquement par cette application.
+        Ouvre une recherche pré-remplie (commune, type de bien, budget) sur le site externe, dans un
+        nouvel onglet. Le budget est pré-rempli à partir du loyer estimé de la commune (±20 %) mais
+        modifiable librement — les liens se mettent à jour automatiquement. Aucune annonce n'est récupérée
+        automatiquement par cette application.
       </div>
     </div>
   `;

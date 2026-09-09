@@ -79,9 +79,14 @@ maintenance.
 
 Les fonctions génératrices sont dans `index.html` (`leboncoinUrl`, `selogerUrl`, `bienIciUrl`). Le schéma
 d'URL LeBoncoin est bien documenté et fiable (paramètres `locations`, `real_estate_type`, `price`, `rooms`).
-Les schémas SeLoger et Bien'ici utilisés (URL de type page-ville) sont ceux les plus communément documentés
-mais n'ont pas pu être vérifiés en conditions réelles (accès à ces domaines bloqué depuis l'environnement de
-développement) — à tester manuellement et ajuster si un lien ne tombe pas sur la bonne page.
+Le schéma SeLoger (`classified-search?distributionTypes=Rent&estateTypes=...&locations=AD08FR<code
+INSEE>&priceMin=...&priceMax=...`) a été vérifié manuellement et fonctionne. Le schéma Bien'ici (URL de type
+page-ville) n'a en revanche pas pu être vérifié en conditions réelles (accès au domaine bloqué depuis
+l'environnement de développement) — à tester et ajuster si le lien ne tombe pas sur la bonne page.
+
+Le budget (min/max) affiché dans les liens est pré-rempli à partir du loyer mensuel estimé de la commune
+(±20 %), mais reste **librement modifiable** via deux champs dans la fiche commune : les 3 liens se
+recalculent automatiquement à la saisie.
 
 Pour rafraîchir ces scores avec un millésime BPE plus récent :
 1. Récupérer l'URL du fichier Parquet BPE à jour sur data.gouv.fr.
