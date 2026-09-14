@@ -1,14 +1,36 @@
-# Carte des loyers — Vannes et périphérie (25 km)
+# Loyers &amp; cadre de vie — Vannes et 25 km
 
-## Contenu du zip
-- `index.html` — la page de l'application (carte interactive Leaflet)
-- `data.js` — les données de loyers (36 communes autour de Vannes), format JSON dans une variable JS
+## Contenu
+- `index.html` — l'application (carte Leaflet + liste + fiche commune), sans dépendance à builder
+- `data.js` — toutes les données (36 communes autour de Vannes), format JSON dans une variable JS
 - `README.md` — ce fichier
 
 ## Utilisation
-Ouvrez simplement `index.html` dans un navigateur (double-clic). Une connexion internet est nécessaire
-uniquement pour charger la bibliothèque cartographique Leaflet et le fond de carte (CDN), les données de
-loyers sont embarquées localement dans `data.js`.
+Ouvrez `index.html` dans un navigateur (double-clic). Une connexion internet est nécessaire uniquement pour
+charger Leaflet, le fond de carte et la police (CDN) ; les données sont embarquées dans `data.js`.
+
+## Interface
+Trois colonnes : à gauche la liste des communes (recherche + 7 tris) et la sélection en cours, au centre la
+carte, à droite la fiche de la commune active.
+
+- **Colorer la carte** : bascule entre le loyer €/m² du type de bien choisi et le score de cadre de vie.
+  La taille des cercles est proportionnelle à la population, le contour doré marque une commune sélectionnée.
+- **Survol synchronisé** : survoler une ligne de la liste met en avant le point sur la carte, et inversement.
+- **Fiche commune** : 3 indicateurs clés puis 4 onglets — Loyers, Cadre de vie, Sécurité, Transports.
+- **Sélection** : l'étoile de la fiche ajoute la commune à la liste des communes à visiter (conservée dans le
+  `localStorage` du navigateur). Le bouton « Comparer » ouvre un tableau trié colonne par colonne.
+
+## Transports (emplacement prêt, données à venir)
+L'onglet Transports d'une commune se remplit automatiquement dès qu'une clé `transports` est ajoutée à cette
+commune dans `data.js` ; sans cette clé, un encart explique le format attendu :
+
+```js
+transports: {
+  note: "Réseau Kicéo…",
+  gares:  [{ nom, type, frequence, temps_paris_min }],
+  lignes: [{ code, nom, reseau, type: "bus|car|train", frequence, couleur }]
+}
+```
 
 ## Données
 Les loyers proviennent des fichiers ANIL/DHUP fournis par l'utilisateur :
